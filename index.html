@@ -44,6 +44,7 @@
         top: 10px;
         width: 100%;
         display: none;
+        grid-template-columns: 1fr 1fr 1fr;
         color: #00ff00;
         font-family: monospace;
         font-weight: bold;
@@ -51,10 +52,81 @@
         padding: 10px;
         z-index: 1001;
       }
-      .hud-stats {
-        display: flex;
-        justify-content: space-between;
-        margin-bottom: 10px;
+      .hud-section {
+        padding: 5px;
+        border: 1px solid #00ff00;
+        margin: 2px;
+        background: rgba(0, 0, 0, 0.6);
+      }
+      .hud-top-left {
+        position: fixed;
+        top: 10px;
+        left: 10px;
+        z-index: 1001;
+        display: none;
+        color: #00ff00;
+        font-family: monospace;
+        font-weight: bold;
+        text-shadow: 0 0 10px #00ff00;
+        border: 1px solid #00ff00;
+        padding: 10px;
+        background: rgba(0, 0, 0, 0.7);
+      }
+      .hud-bottom-left {
+        position: fixed;
+        bottom: 20px;
+        left: 10px;
+        z-index: 1001;
+        display: none;
+        color: #00ff00;
+        font-family: monospace;
+        font-weight: bold;
+        text-shadow: 0 0 10px #00ff00;
+        border: 1px solid #00ff00;
+        padding: 10px;
+        background: rgba(0, 0, 0, 0.8);
+        width: 200px;
+      }
+      .hud-bottom-right {
+        position: fixed;
+        bottom: 20px;
+        right: 10px;
+        z-index: 1001;
+        display: none;
+        color: #00ff00;
+        font-family: monospace;
+        font-weight: bold;
+        text-shadow: 0 0 10px #00ff00;
+        border: 1px solid #00ff00;
+        padding: 10px;
+        background: rgba(0, 0, 0, 0.8);
+        text-align: right;
+        min-width: 250px;
+      }
+      #healthBar {
+        width: 100%;
+        height: 20px;
+        background: linear-gradient(90deg, #00ff00, #00cc00);
+        border: 1px solid #00ff00;
+        margin-top: 5px;
+        display: block;
+      }
+      .radar {
+        width: 150px;
+        height: 150px;
+        border: 2px solid #00ff00;
+        background: radial-gradient(circle, rgba(0,255,0,0.1), rgba(0,0,0,0.5));
+        margin-top: 5px;
+        position: relative;
+      }
+      .radar-center {
+        width: 4px;
+        height: 4px;
+        background: #00ff00;
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
       }
       .hud-crosshair {
         position: fixed;
@@ -139,13 +211,38 @@
     <div id="gameContainer">
       <canvas id="gameCanvas"></canvas>
       <div id="gameHUD">
-        <div class="hud-stats">
-          <span>AMMO: <span id="ammoCount">30</span></span>
-          <span>KILLS: <span id="killCount">0</span></span>
-          <span>HEALTH: <span id="healthCount">100</span></span>
+        <div class="hud-section">
+          <div>AMMO: <span id="ammoCount">30/30</span></div>
+          <div>WEAPON: <span id="weaponName">XM4</span></div>
+          <div>KEYS: 1=XM4  2=1911  R=RELOAD</div>
         </div>
-        <div id="instructions">WASD: Move | MOUSE: Look | CLICK: Shoot | ESC: Exit Game</div>
+        <div class="hud-section">
+          <div style="text-align: center;">[ TACTICAL HUD ]</div>
+          <div>STATUS: ACTIVE</div>
+          <div>TARGETS: <span id="targetCount">7</span></div>
+        </div>
+        <div class="hud-section">
+          <div>KILLS: <span id="killCount">0</span></div>
+          <div>HEADSHOTS: <span id="headshots">0</span></div>
+          <div>HEALTH: <span id="healthCount">100</span>%</div>
+        </div>
       </div>
+      
+      <div id="healthContainer" class="hud-bottom-left" style="display: none;">
+        <div>HEALTH STATUS</div>
+        <div id="healthBar" style="width: 100%; height: 25px; background: linear-gradient(90deg, #00ff00, #00cc00); border: 1px solid #00ff00; margin-top: 5px;"></div>
+        <div style="margin-top: 5px; font-size: 12px;">CONDITION: <span id="healthStatus">OPTIMAL</span></div>
+      </div>
+
+      <div id="statsPanel" class="hud-bottom-right" style="display: none;">
+        <div>>>> MISSION STATS <<<</div>
+        <div style="margin-top: 8px; border-top: 1px solid #00ff00; padding-top: 8px;">
+          <div>Targets Eliminated: <span id="killStats">0</span></div>
+          <div>Precision Shots: <span id="headshotStats">0</span></div>
+          <div>Accuracy: <span id="accuracyStats">0</span>%</div>
+        </div>
+      </div>
+
       <div class="hud-crosshair"></div>
       <button id="exitGameBtn">EXIT GAME</button>
     </div>
@@ -189,6 +286,19 @@
             exitGame();
           }
         });
+
+        // HUD display management (will be called from game.js)
+        window.showGameHUD = function() {
+          document.getElementById('gameHUD').style.display = 'grid';
+          document.getElementById('healthContainer').style.display = 'block';
+          document.getElementById('statsPanel').style.display = 'block';
+        };
+
+        window.hideGameHUD = function() {
+          document.getElementById('gameHUD').style.display = 'none';
+          document.getElementById('healthContainer').style.display = 'none';
+          document.getElementById('statsPanel').style.display = 'none';
+        };
       });
 
       // Register Service Worker for PWA functionality
