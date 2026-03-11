@@ -1,4 +1,4 @@
-// Black Ops Mini FPS Game - Enhanced Realistic Version
+// Black Ops Mini FPS Game - Enhanced Realistic Version with Mobile Support
 // Uses Three.js for 3D rendering with advanced mechanics
 
 let scene, camera, renderer;
@@ -6,8 +6,9 @@ let player = {
   x: 0, 
   y: 0, 
   z: 0, 
-  health: 100, 
-  maxHealth: 100,
+  // unlimited health
+  health: Infinity, 
+  maxHealth: Infinity,
   ammo: 30,
   maxAmmo: 30,
   kills: 0,
@@ -48,6 +49,14 @@ let mouseDown = false;
 let raycaster = new THREE.Raycaster();
 let mouse = new THREE.Vector2();
 let camShake = 0;
+
+// Mobile control variables
+let isMobile = false;
+let joystickActive = false;
+let joystickCenter = { x: 0, y: 0 };
+let joystickPosition = { x: 0, y: 0 };
+let touchMoveVector = { x: 0, y: 0 };
+let touchShoot = false;
 
 function initGame() {
   // Scene setup
@@ -295,51 +304,186 @@ function createEnemy(x, z, difficulty = 'medium') {
 }
 
 function setupInput() {
-  document.addEventListener('keydown', (e) => {
-    const key = e.key.toLowerCase();
-    if (key === 'w') keys.w = true;
-    if (key === 'a') keys.a = true;
-    if (key === 's') keys.s = true;
-    if (key === 'd') keys.d = true;
-    if (key === 'control') keys.ctrl = true;
-    if (key === 'r') reload();
-    if (key === '1') switchWeapon('xm4');
-    if (key === '2') switchWeapon('pistol');
+  // Detect mobile device
+  isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth <= 768;
+
+  if (!isMobile) {
+    // Desktop controls
+    document.addEventListener('keydown', (e) => {
+      const key = e.key.toLowerCase();
+      if (key === 'w') keys.w = true;
+      if (key === 'a') keys.a = true;
+      if (key === 's') keys.s = true;
+      if (key === 'd') keys.d = true;
+      if (key === 'control') keys.ctrl = true;
+      if (key === 'r') reload();
+      if (key === '1') switchWeapon('xm4');
+      if (key === '2') switchWeapon('pistol');
+    });
+
+    document.addEventListener('keyup', (e) => {
+      const key = e.key.toLowerCase();
+      if (key === 'w') keys.w = false;
+      if (key === 'a') keys.a = false;
+      if (key === 's') keys.s = false;
+      if (key === 'd') keys.d = false;
+      if (key === 'control') keys.ctrl = false;
+    });
+
+    // Mouse look
+    document.addEventListener('mousemove', (e) => {
+      if (!gameRunning) return;
+      const deltaX = e.movementX || 0;
+      const deltaY = e.movementY || 0;
+      
+      camera.rotation.order = 'YXZ';
+      camera.rotation.y -= deltaX * 0.002;
+      camera.rotation.x -= deltaY * 0.002;
+      
+      const maxLookAngle = Math.PI / 2;
+      camera.rotation.x = Math.max(-maxLookAngle, Math.min(maxLookAngle, camera.rotation.x));
+    });
+
+    // Shooting
+    document.addEventListener('mousedown', () => {
+      mouseDown = true;
+    });
+
+    document.addEventListener('mouseup', () => {
+      mouseDown = false;
+    });
+
+    // Lock pointer
+    document.getElementById('gameContainer').addEventListener('click', () => {
+      document.getElementById('gameCanvas').requestPointerLock();
+    });
+  } else {
+    // Mobile controls
+    setupMobileControls();
+  }
+}
+
+function setupMobileControls() {
+  const joystick = document.querySelector('.joystick');
+  const joystickContainer = document.querySelector('.joystick-container');
+  const shootBtn = document.getElementById('shootBtn');
+  const weapon1Btn = document.getElementById('weapon1Btn');
+  const weapon2Btn = document.getElementById('weapon2Btn');
+  const reloadBtn = document.getElementById('reloadBtn');
+
+  // Joystick touch events
+  joystickContainer.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    joystickActive = true;
+    const rect = joystickContainer.getBoundingClientRect();
+    joystickCenter.x = rect.left + rect.width / 2;
+    joystickCenter.y = rect.top + rect.height / 2;
+    updateJoystick(e.touches[0]);
   });
 
-  document.addEventListener('keyup', (e) => {
-    const key = e.key.toLowerCase();
-    if (key === 'w') keys.w = false;
-    if (key === 'a') keys.a = false;
-    if (key === 's') keys.s = false;
-    if (key === 'd') keys.d = false;
-    if (key === 'control') keys.ctrl = false;
+  joystickContainer.addEventListener('touchmove', (e) => {
+    e.preventDefault();
+    if (joystickActive) {
+      updateJoystick(e.touches[0]);
+    }
   });
 
-  document.addEventListener('mousemove', (e) => {
+  joystickContainer.addEventListener('touchend', (e) => {
+    e.preventDefault();
+    joystickActive = false;
+    joystick.style.left = '40px';
+    joystick.style.top = '40px';
+    touchMoveVector.x = 0;
+    touchMoveVector.y = 0;
+  });
+
+  // Shoot button
+  shootBtn.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    touchShoot = true;
+  });
+
+  shootBtn.addEventListener('touchend', (e) => {
+    e.preventDefault();
+    touchShoot = false;
+  });
+
+  // Weapon switch buttons
+  weapon1Btn.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    switchWeapon('xm4');
+    weapon1Btn.classList.add('active');
+    weapon2Btn.classList.remove('active');
+  });
+
+  weapon2Btn.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    switchWeapon('pistol');
+    weapon2Btn.classList.add('active');
+    weapon1Btn.classList.remove('active');
+  });
+
+  // Reload button
+  reloadBtn.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    reload();
+  });
+
+  // Touch look (drag on screen)
+  let lastTouchX = 0;
+  let lastTouchY = 0;
+
+  document.addEventListener('touchstart', (e) => {
+    if (e.target.closest('.mobile-controls') || e.target.closest('.shoot-btn') || 
+        e.target.closest('.weapon-switch') || e.target.closest('.reload-btn')) {
+      return; // Don't interfere with controls
+    }
+    lastTouchX = e.touches[0].clientX;
+    lastTouchY = e.touches[0].clientY;
+  });
+
+  document.addEventListener('touchmove', (e) => {
+    if (e.target.closest('.mobile-controls') || e.target.closest('.shoot-btn') || 
+        e.target.closest('.weapon-switch') || e.target.closest('.reload-btn')) {
+      return;
+    }
+    
     if (!gameRunning) return;
-    const deltaX = e.movementX || 0;
-    const deltaY = e.movementY || 0;
+    
+    const deltaX = e.touches[0].clientX - lastTouchX;
+    const deltaY = e.touches[0].clientY - lastTouchY;
     
     camera.rotation.order = 'YXZ';
-    camera.rotation.y -= deltaX * 0.002;
-    camera.rotation.x -= deltaY * 0.002;
+    camera.rotation.y -= deltaX * 0.003;
+    camera.rotation.x -= deltaY * 0.003;
     
     const maxLookAngle = Math.PI / 2;
     camera.rotation.x = Math.max(-maxLookAngle, Math.min(maxLookAngle, camera.rotation.x));
+    
+    lastTouchX = e.touches[0].clientX;
+    lastTouchY = e.touches[0].clientY;
   });
+}
 
-  document.addEventListener('mousedown', () => {
-    mouseDown = true;
-  });
+function updateJoystick(touch) {
+  const dx = touch.clientX - joystickCenter.x;
+  const dy = touch.clientY - joystickCenter.y;
+  const distance = Math.sqrt(dx * dx + dy * dy);
+  const maxDistance = 40;
 
-  document.addEventListener('mouseup', () => {
-    mouseDown = false;
-  });
+  const clampedDistance = Math.min(distance, maxDistance);
+  const angle = Math.atan2(dy, dx);
 
-  document.getElementById('gameContainer').addEventListener('click', () => {
-    document.getElementById('gameCanvas').requestPointerLock();
-  });
+  const joystickX = Math.cos(angle) * clampedDistance;
+  const joystickY = Math.sin(angle) * clampedDistance;
+
+  const joystick = document.querySelector('.joystick');
+  joystick.style.left = (40 + joystickX) + 'px';
+  joystick.style.top = (40 + joystickY) + 'px';
+
+  // Update movement vector
+  touchMoveVector.x = (dx / maxDistance) * 0.5;
+  touchMoveVector.y = (dy / maxDistance) * 0.5;
 }
 
 function updatePlayer() {
@@ -349,10 +493,17 @@ function updatePlayer() {
   
   const direction = new THREE.Vector3();
 
-  if (keys.w) direction.z -= 1;
-  if (keys.s) direction.z += 1;
-  if (keys.a) direction.x -= 1;
-  if (keys.d) direction.x += 1;
+  if (isMobile) {
+    // Mobile movement using joystick
+    direction.x = touchMoveVector.x;
+    direction.z = -touchMoveVector.y; // Invert Y for forward/backward
+  } else {
+    // Desktop movement
+    if (keys.w) direction.z -= 1;
+    if (keys.s) direction.z += 1;
+    if (keys.a) direction.x -= 1;
+    if (keys.d) direction.x += 1;
+  }
 
   if (direction.length() > 0) {
     direction.normalize();
@@ -592,7 +743,8 @@ function updateHUD() {
   const weapon = weapons[player.currentWeapon];
   document.getElementById('ammoCount').textContent = player.ammo + '/' + weapon.magSize;
   document.getElementById('killCount').textContent = player.kills;
-  document.getElementById('healthCount').textContent = player.health;
+  // display infinite symbol if health is not finite
+  document.getElementById('healthCount').textContent = isFinite(player.health) ? player.health : '∞';
   document.getElementById('weaponName').textContent = weapon.name;
   document.getElementById('headshots').textContent = player.headshots;
   document.getElementById('targetCount').textContent = enemies.filter(e => !e.dead).length;
@@ -606,16 +758,20 @@ function updateHUD() {
   
   // Health bar and status
   const healthBar = document.getElementById('healthBar');
-  const healthPercent = (player.health / player.maxHealth) * 100;
-  healthBar.style.width = healthPercent + '%';
+  if (!isFinite(player.health) || !isFinite(player.maxHealth)) {
+    healthBar.style.width = '100%';
+  } else {
+    const healthPercent = (player.health / player.maxHealth) * 100;
+    healthBar.style.width = healthPercent + '%';
+  }
   
   let healthStatus = 'OPTIMAL';
   let healthColor = 'linear-gradient(90deg, #00ff00, #00cc00)';
   
-  if (player.health <= 20) {
+  if (isFinite(player.health) && player.health <= 20) {
     healthStatus = 'CRITICAL';
     healthColor = 'linear-gradient(90deg, #ff0000, #cc0000)';
-  } else if (player.health <= 50) {
+  } else if (isFinite(player.health) && player.health <= 50) {
     healthStatus = 'INJURED';
     healthColor = 'linear-gradient(90deg, #ffaa00, #ff6600)';
   } else if (player.health < 100) {
@@ -636,7 +792,8 @@ function animate() {
   updateEnemyAI();
   updateParticles();
 
-  if (mouseDown) {
+  // Handle shooting for both desktop and mobile
+  if ((mouseDown && !isMobile) || (touchShoot && isMobile)) {
     shoot();
   }
 
@@ -658,8 +815,16 @@ function startGame() {
   gameContainer.style.display = 'block';
   content.style.display = 'none';
   window.showGameHUD();
-  crosshair.style.display = 'block';
+  crosshair.style.display = isMobile ? 'none' : 'block'; // Hide crosshair on mobile
   exitBtn.style.display = 'block';
+
+  // Show mobile controls if on mobile
+  if (isMobile) {
+    document.querySelector('.mobile-controls').style.display = 'block';
+    document.getElementById('shootBtn').style.display = 'flex';
+    document.querySelector('.weapon-switch').style.display = 'flex';
+    document.getElementById('reloadBtn').style.display = 'flex';
+  }
 
   if (!scene) {
     initGame();
@@ -668,7 +833,10 @@ function startGame() {
     animate();
   }
 
-  document.getElementById('gameCanvas').requestPointerLock();
+  // Only request pointer lock on desktop
+  if (!isMobile) {
+    document.getElementById('gameCanvas').requestPointerLock();
+  }
 }
 
 function exitGame() {
@@ -684,13 +852,23 @@ function exitGame() {
   crosshair.style.display = 'none';
   exitBtn.style.display = 'none';
 
+  // Hide mobile controls
+  if (isMobile) {
+    document.querySelector('.mobile-controls').style.display = 'none';
+    document.getElementById('shootBtn').style.display = 'none';
+    document.querySelector('.weapon-switch').style.display = 'none';
+    document.getElementById('reloadBtn').style.display = 'none';
+  }
+
   if (document.pointerLockElement) {
     document.exitPointerLock();
   }
 
   // Reset game state
   player = { 
-    x: 0, y: 0, z: 0, health: 100, maxHealth: 100, ammo: 30, maxAmmo: 30, 
+    x: 0, y: 0, z: 0, 
+    health: Infinity, maxHealth: Infinity, // unlimited health
+    ammo: 30, maxAmmo: 30, 
     kills: 0, headshots: 0, currentWeapon: 'xm4', stance: 'standing'
   };
   enemies = [];
