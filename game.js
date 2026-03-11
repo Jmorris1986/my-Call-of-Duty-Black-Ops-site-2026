@@ -20,7 +20,7 @@ let player = {
 let weapons = {
   xm4: {
     name: 'XM4',
-    damage: 25,
+    damage: 35,
     fireRate: 100,
     recoil: 0.12,
     spread: 0.02,
@@ -33,14 +33,14 @@ let weapons = {
     fireRate: 150,
     recoil: 0.3,
     spread: 0.05,
-    magSize: 8,
+    magSize: 30,
     fireMode: 'semi'
   }
 };
 
-let enemies = [];
+let enemies = [25];
 let particles = [];
-let bloodSplats = [];
+let bloodSplats = [2];
 let canShoot = true;
 let lastShotTime = 0;
 let gameRunning = false;
@@ -48,7 +48,13 @@ let keys = { w: false, a: false, s: false, d: false, ctrl: false };
 let mouseDown = false;
 let raycaster = new THREE.Raycaster();
 let mouse = new THREE.Vector2();
+let gunMesh;
 let camShake = 0;
+
+// Audio system variables
+let audioContext;
+let soundVolume = 0.3;
+let soundEnabled = true;
 
 // Mobile control variables
 let isMobile = false;
@@ -59,6 +65,9 @@ let touchMoveVector = { x: 0, y: 0 };
 let touchShoot = false;
 
 function initGame() {
+  // Initialize audio system
+  initAudio();
+  
   // Scene setup
   scene = new THREE.Scene();
   scene.background = new THREE.Color(0x0a0a0a);
@@ -547,6 +556,9 @@ function shoot() {
   player.ammo--;
   updateHUD();
 
+  // Play shooting sound
+  playShootSound(player.currentWeapon);
+
   // Recoil effect
   camShake = currentWeaponStats.recoil;
   camera.rotation.x -= currentWeaponStats.recoil * 0.5;
@@ -577,6 +589,9 @@ function shoot() {
           if (!enemy.dead) {
             enemy.health -= damage;
             
+            // Play hit sound
+            playHitSound();
+            
             // Blood effect
             createBloodEffect(intersection.point);
 
@@ -591,6 +606,9 @@ function shoot() {
               if (isHeadshot) {
                 player.headshots++;
               }
+              
+              // Play kill sound
+              playKillSound();
               
               updateHUD();
             }
@@ -728,6 +746,10 @@ function enemyShoot(enemy) {
 
 function reload() {
   player.ammo = player.maxAmmo;
+  
+  // Play reload sound
+  playReloadSound();
+  
   updateHUD();
 }
 
@@ -783,6 +805,151 @@ function updateHUD() {
   healthBar.style.background = healthColor;
 }
 
+// Sound Effect Functions
+function initAudio() {
+  if (!audioContext) {
+    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+  }
+}
+
+function playShootSound(weaponType = 'xm4') {
+  if (!soundEnabled || !audioContext) return;
+  
+  const now = audioContext.currentTime;
+  const osc = audioContext.createOscillator();
+  const gain = audioContext.createGain();
+  
+  osc.connect(gain);
+  gain.connect(audioContext.destination);
+  
+  if (weaponType === 'xm4') {
+    // Rifle shot - sharp percussion sound
+    osc.frequency.setValueAtTime(150, now);
+    osc.frequency.exponentialRampToValueAtTime(50, now + 0.1);
+    gain.gain.setValueAtTime(soundVolume * 0.6, now);
+    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+    osc.start(now);
+    osc.stop(now + 0.1);
+  } else if (weaponType === 'pistol') {
+    // Pistol shot - higher pitch
+    osc.frequency.setValueAtTime(200, now);
+    osc.frequency.exponentialRampToValueAtTime(80, now + 0.08);
+    gain.gain.setValueAtTime(soundVolume * 0.5, now);
+    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.08);
+    osc.start(now);
+    osc.stop(now + 0.08);
+  }
+}
+
+function playHitSound() {
+  if (!soundEnabled || !audioContext) return;
+  
+  const now = audioContext.currentTime;
+  const osc = audioContext.createOscillator();
+  const gain = audioContext.createGain();
+  
+  osc.connect(gain);
+  gain.connect(audioContext.destination);
+  
+  // Impact sound - quick beep
+  osc.frequency.setValueAtTime(400, now);
+  osc.frequency.exponentialRampToValueAtTime(100, now + 0.1);
+  gain.gain.setValueAtTime(soundVolume * 0.4, now);
+  gain.gain.exponentialRampToValueAtTime(0, now + 0.1);
+  osc.start(now);
+  osc.stop(now + 0.1);
+}
+
+function playKillSound() {
+  if (!soundEnabled || !audioContext) return;
+  
+  const now = audioContext.currentTime;
+  
+  // Play a triumphant beep sequence
+  for (let i = 0; i < 3; i++) {
+    const osc = audioContext.createOscillator();
+    const gain = audioContext.createGain();
+    
+    osc.connect(gain);
+    gain.connect(audioContext.destination);
+    
+    const startTime = now + (i * 0.1);
+    const freq = 300 + (i * 100);
+    
+    osc.frequency.setValueAtTime(freq, startTime);
+    gain.gain.setValueAtTime(soundVolume * 0.5, startTime);
+    gain.gain.exponentialRampToValueAtTime(0, startTime + 0.08);
+    osc.start(startTime);
+    osc.stop(startTime + 0.08);
+  }
+}
+
+function playReloadSound() {
+  if (!soundEnabled || !audioContext) return;
+  
+  const now = audioContext.currentTime;
+  
+  // Reload sound - mechanical beeps
+  for (let i = 0; i < 2; i++) {
+    const osc = audioContext.createOscillator();
+    const gain = audioContext.createGain();
+    
+    osc.connect(gain);
+    gain.connect(audioContext.destination);
+    
+    const startTime = now + (i * 0.15);
+    
+    osc.frequency.setValueAtTime(180 + (i * 50), startTime);
+    gain.gain.setValueAtTime(soundVolume * 0.4, startTime);
+    gain.gain.exponentialRampToValueAtTime(0, startTime + 0.1);
+    osc.start(startTime);
+    osc.stop(startTime + 0.1);
+  }
+}
+
+function playGameStartSound() {
+  if (!soundEnabled || !audioContext) return;
+  
+  const now = audioContext.currentTime;
+  const osc = audioContext.createOscillator();
+  const gain = audioContext.createGain();
+  
+  osc.connect(gain);
+  gain.connect(audioContext.destination);
+  
+  // Game start - rising tone
+  osc.frequency.setValueAtTime(200, now);
+  osc.frequency.exponentialRampToValueAtTime(600, now + 0.3);
+  gain.gain.setValueAtTime(soundVolume * 0.5, now);
+  gain.gain.exponentialRampToValueAtTime(0, now + 0.3);
+  osc.start(now);
+  osc.stop(now + 0.3);
+}
+
+function playGameOverSound() {
+  if (!soundEnabled || !audioContext) return;
+  
+  const now = audioContext.currentTime;
+  
+  // Game over - descending tone
+  for (let i = 0; i < 2; i++) {
+    const osc = audioContext.createOscillator();
+    const gain = audioContext.createGain();
+    
+    osc.connect(gain);
+    gain.connect(audioContext.destination);
+    
+    const startTime = now + (i * 0.2);
+    const freq = 400 - (i * 100);
+    
+    osc.frequency.setValueAtTime(freq, startTime);
+    gain.gain.setValueAtTime(soundVolume * 0.5, startTime);
+    gain.gain.exponentialRampToValueAtTime(0, startTime + 0.15);
+    osc.start(startTime);
+    osc.stop(startTime + 0.15);
+  }
+}
+
 function animate() {
   if (!gameRunning) return;
 
@@ -828,6 +995,7 @@ function startGame() {
 
   if (!scene) {
     initGame();
+    playGameStartSound();
   } else {
     gameRunning = true;
     animate();
@@ -885,6 +1053,8 @@ function exitGame() {
 }
 
 function endGame() {
+  playGameOverSound();
+  
   const accuracy = player.kills > 0 ? Math.round((player.headshots / player.kills) * 100) : 0;
   alert(`MISSION COMPLETE!\n\nKills: ${player.kills}\nHeadshots: ${player.headshots}\nAccuracy: ${accuracy}%`);
   exitGame();
