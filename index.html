@@ -1,18 +1,34 @@
 <html>
   <head>
     <title>Call of Duty Black Ops Site</title>
+    <style>
+      @keyframes fpsMotion {
+        0% { transform: scale(1); }
+        25% { transform: scale(1.1) rotate(1deg); }
+        50% { transform: scale(1.2) rotate(-1deg); }
+        75% { transform: scale(1.1) rotate(1deg); }
+        100% { transform: scale(1); }
+      }
+      .animate {
+        animation: fpsMotion 2s infinite;
+      }
+    </style>
   </head>
   <body>
     <h1>Call of Duty Black Ops</h1>
     <p>This site is about Call of Duty Black Ops, a thrilling first-person shooter game. Here is one cool fact: It features a gripping campaign set during the Cold War era.</p>
     <a href="https://en.wikipedia.org/wiki/Call_of_Duty:_Black_Ops">Learn more on Wikipedia</a>
     <div id="imageContainer">
-      <img src="Black ops.jpg" alt="Black Ops image" />
+      <img id="gameImage" src="black ops.jpg" alt="Call of Duty Black Ops gameplay" />
     </div>
     <script>
       document.addEventListener('DOMContentLoaded', function() {
-        const container = document.getElementById('imageContainer');
-        container.innerHTML = '<iframe width="560" height="315" src="https://www.youtube.com/embed/4Qd2Vc6t0zE?autoplay=1&mute=1" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>';
+        const img = document.getElementById('gameImage');
+        img.classList.add('animate');
+        // To turn into motion picture, after animation, replace with video
+        setTimeout(function() {
+          document.getElementById('imageContainer').innerHTML = '<iframe width="560" height="315" src="https://www.youtube.com/embed/LXefEyo-HPY?autoplay=1&mute=1" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>';
+        }, 5000); // after 5 seconds
       });
     </script>
   </body>
